@@ -5,8 +5,8 @@ from config.configurator import configs
 
 class Metric(object):
     def __init__(self):
-        self.metrics = configs['test']['metrics']
-        self.k = configs['test']['k']
+        self.metrics = configs["test"]["metrics"]
+        self.k = configs["test"]["k"]
 
     def recall(self, test_data, r, k):
         right_pred = r[:, :k].sum(1)
@@ -22,7 +22,7 @@ class Metric(object):
 
     def mrr(self, r, k):
         pred_data = r[:, :k]
-        scores = 1. / np.arange(1, k + 1)
+        scores = 1.0 / np.arange(1, k + 1)
         pred_data = pred_data * scores
         pred_data = pred_data.sum(1)
         return np.sum(pred_data)
@@ -36,12 +36,12 @@ class Metric(object):
             length = k if k <= len(items) else len(items)
             test_matrix[i, :length] = 1
         max_r = test_matrix
-        idcg = np.sum(max_r * 1. / np.log2(np.arange(2, k + 2)), axis=1)
-        dcg = pred_data * (1. / np.log2(np.arange(2, k + 2)))
+        idcg = np.sum(max_r * 1.0 / np.log2(np.arange(2, k + 2)), axis=1)
+        dcg = pred_data * (1.0 / np.log2(np.arange(2, k + 2)))
         dcg = np.sum(dcg, axis=1)
-        idcg[idcg == 0.] = 1.
+        idcg[idcg == 0.0] = 1.0
         ndcg = dcg / idcg
-        ndcg[np.isnan(ndcg)] = 0.
+        ndcg[np.isnan(ndcg)] = 0.0
         return np.sum(ndcg)
 
     def get_label(self, test_data, pred_data):
@@ -52,7 +52,7 @@ class Metric(object):
             pred = list(map(lambda x: x in ground_true, predict_topk))
             pred = np.array(pred).astype("float")
             r.append(pred)
-        return np.array(r).astype('float')
+        return np.array(r).astype("float")
 
     def eval_batch(self, data, topks):
         sorted_items = data[0].numpy()
@@ -65,13 +65,13 @@ class Metric(object):
 
         for k in topks:
             for metric in result:
-                if metric == 'recall':
+                if metric == "recall":
                     result[metric].append(self.recall(ground_true, r, k))
-                if metric == 'ndcg':
+                if metric == "ndcg":
                     result[metric].append(self.ndcg(ground_true, r, k))
-                if metric == 'precision':
+                if metric == "precision":
                     result[metric].append(self.precision(r, k))
-                if metric == 'mrr':
+                if metric == "mrr":
                     result[metric].append(self.mrr(r, k))
 
         for metric in result:
@@ -92,19 +92,23 @@ class Metric(object):
             if not isinstance(tem, list):
                 tem = [tem]
             test_user = tem[0].numpy().tolist()
-            batch_data = list(map(lambda x: x.long().to(configs['device']), tem))
+            batch_data = list(map(lambda x: x.long().to(configs["device"]), tem))
             # predict result
             with torch.no_grad():
                 batch_pred = model.full_predict(batch_data)
             test_user_count += batch_pred.shape[0]
             # filter out history items
             batch_pred = self._mask_history_pos(batch_pred, test_user, test_dataloader)
+            batch_pred = self._mask_unquery_pos(batch_pred, test_user, test_dataloader)
+
             _, batch_rate = torch.topk(batch_pred, k=max(self.k))
             batch_ratings.append(batch_rate.cpu())
             # ground truth
             ground_truth = []
             for user_idx in test_user:
-                ground_truth.append(list(test_dataloader.dataset.user_pos_lists[user_idx]))
+                ground_truth.append(
+                    list(test_dataloader.dataset.user_pos_lists[user_idx])
+                )
             ground_truths.append(ground_truth)
         assert test_user_count == test_user_num
 
@@ -133,7 +137,7 @@ class Metric(object):
             if not isinstance(tem, list):
                 tem = [tem]
             test_user = tem[0].numpy().tolist()
-            batch_data = list(map(lambda x: x.long().to(configs['device']), tem))
+            batch_data = list(map(lambda x: x.long().to(configs["device"]), tem))
             # predict result
             with torch.no_grad():
                 batch_pred = model.full_predict(batch_data)
@@ -145,7 +149,9 @@ class Metric(object):
             # ground truth
             ground_truth = []
             for user_idx in test_user:
-                ground_truth.append(list(test_dataloader.dataset.user_pos_lists[user_idx]))
+                ground_truth.append(
+                    list(test_dataloader.dataset.user_pos_lists[user_idx])
+                )
             for i in range(len(test_user)):
                 user_idx = test_user[i]
                 candidate_set[user_idx] = batch_rate[i].detach().cpu().numpy().tolist()
@@ -165,9 +171,17 @@ class Metric(object):
         return result, candidate_set
 
     def _mask_history_pos(self, batch_rate, test_user, test_dataloader):
-        if not hasattr(test_dataloader.dataset, 'user_history_lists'):
+        if not hasattr(test_dataloader.dataset, "user_history_lists"):
             return batch_rate
         for i, user_idx in enumerate(test_user):
             pos_list = test_dataloader.dataset.user_history_lists[user_idx]
+            batch_rate[i, pos_list] = -1e8
+        return batch_rate
+
+    def _mask_unquery_pos(self, batch_rate, test_user, test_dataloader):
+        if not hasattr(test_dataloader.dataset, "masked_unquery_iids"):
+            return batch_rate
+        for i, user_idx in enumerate(test_user):
+            pos_list = test_dataloader.dataset.masked_unquery_iids[user_idx]
             batch_rate[i, pos_list] = -1e8
         return batch_rate

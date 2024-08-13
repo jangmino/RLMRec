@@ -52,3 +52,9 @@ model:
     reg_weight: 1.0e-6
     kd_weight: 1.0e-2
     kd_temperature: 0.5
+  # for katchers
+  katchers:
+    layer_num: 2
+    reg_weight: 1.0e-6
+    kd_weight: 1.0e-3
+    kd_temperature: 0.1
