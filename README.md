@@ -59,7 +59,7 @@ One additional file is `tst_masked_unquery_iids.pkl`. This is auxiliary informat
 
 | Model | NDCG@5 | NDCG@10 |
 | --- | --- | --- |
-|BERT With|0.4910*|0.5376*|
+|BERT<sub>with|0.4910*|0.5376*|
 |gccf_plus|0.3100|0.3616|
 |gccf_gene|0.3022|0.3512|
 |dccf_plus|0.2894|0.3374|
